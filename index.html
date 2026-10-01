@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Pede aos motores de busca para não indexarem esta página -->
+  <meta name="robots" content="noindex, nofollow">
+  <title>O Porquinho Guloso</title>
+  <style>
+    /* ---------- Aspecto geral da página ---------- */
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      background: #fdeef2;
+      color: #4a2a33;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+    }
+    h1 { margin: 4px 0 8px; font-size: clamp(1.6rem, 5vw, 2.4rem); color: #c2456b; }
+    .subtitulo { margin: 0 0 12px; text-align: center; }
+
+    /* O canvas é a "tela" onde o jogo é desenhado */
+    #jogo {
+      width: 100%;
+      max-width: 800px;
+      height: auto;
+      border-radius: 14px;
+      border: 4px solid #8b5a2b;
+      background: #7cc96b;
+      touch-action: none;        /* impede o scroll quando se toca no jogo */
+      box-shadow: 0 6px 18px rgba(0,0,0,.18);
+    }
+
+    .botoes { display: flex; gap: 10px; margin: 12px 0; flex-wrap: wrap; justify-content: center; }
+    button {
+      font: inherit;
+      font-size: 1rem;
+      padding: 10px 18px;
+      border: none;
+      border-radius: 10px;
+      background: #c2456b;
+      color: #fff;
+      cursor: pointer;
+    }
+    button:hover { background: #a3375a; }
+    button:focus-visible { outline: 3px solid #4a2a33; outline-offset: 2px; }
+
+    .instrucoes {
+      max-width: 800px;
+      width: 100%;
+      background: #fff;
+      border-radius: 12px;
+      padding: 12px 18px;
+      line-height: 1.5;
+    }
+    .instrucoes h2 { margin: 6px 0; font-size: 1.15rem; color: #c2456b; }
+    .instrucoes ul { margin: 6px 0; padding-left: 20px; }
+    /* ---------- Painel de personalização ---------- */
+    .personalizar {
+      max-width: 800px;
+      width: 100%;
+      background: #fff;
+      border-radius: 12px;
+      padding: 12px 18px;
+      margin-bottom: 12px;
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .personalizar h2 { margin: 0 0 6px; font-size: 1.15rem; color: #c2456b; width: 100%; }
+    #previsao { background: #7cc96b; border-radius: 12px; border: 3px solid #8b5a2b; }
+    .opcoes { flex: 1; min-width: 260px; }
+    .opcoes label.titulo { display: block; font-weight: bold; margin: 8px 0 4px; }
+    .grelha { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .cor {
+      width: 34px; height: 34px; padding: 0;
+      border-radius: 50%;
+      border: 3px solid #fff;
+      box-shadow: 0 0 0 2px #d9b3bf;
+    }
+    .cor.activo, .chapeu.activo { box-shadow: 0 0 0 3px #4a2a33; }
+    .chapeu { background: #fde1e8; color: #4a2a33; padding: 6px 12px; font-size: .95rem; }
+    .chapeu:hover { background: #f8c9d6; }
+    input[type="color"] { width: 40px; height: 34px; border: none; background: none; cursor: pointer; }
+    input[type="text"] {
+      font: inherit; padding: 6px 10px; border-radius: 8px;
+      border: 2px solid #d9b3bf; width: 180px;
+    }
+
+    footer { margin-top: 12px; font-size: .85rem; opacity: .7; }
+  </style>
+</head>
+<body>
+
+  <h1>O Porquinho Guloso</h1>
+  <p class="subtitulo">Ajuda o porquinho a comer o máximo possível sem ser apanhado pelo lobo!</p>
+
+  <!-- Tamanho lógico do jogo: 800 x 500. O CSS adapta-o ao ecrã. -->
+  <canvas id="jogo" width="800" height="500" aria-label="Área de jogo"></canvas>
+
+  <div class="botoes">
+    <button id="btnJogar">Jogar</button>
+    <button id="btnPausa">Pausa</button>
+    <button id="btnSom">Som: ligado</button>
+  </div>
+
+  <!-- Personalização: cor, chapéu e nome do porquinho -->
+  <section class="personalizar">
+    <h2>Personaliza o teu porquinho</h2>
+    <canvas id="previsao" width="160" height="140" aria-label="Pré-visualização do porquinho"></canvas>
+    <div class="opcoes">
+      <label class="titulo" for="nomePorco">Nome</label>
+      <input type="text" id="nomePorco" maxlength="12" placeholder="Ex.: Toucinho">
+
+      <label class="titulo">Cor</label>
+      <div class="grelha" id="cores"></div>
+
+      <label class="titulo">Chapéu</label>
+      <div class="grelha" id="chapeus"></div>
+    </div>
+  </section>
+
+  <section class="instrucoes">
+    <h2>Como jogar</h2>
+    <ul>
+      <li><strong>Computador:</strong> setas ou W A S D para mover. Espaço ou P para pausar.</li>
+      <li><strong>Tablet/telemóvel:</strong> toca e arrasta o dedo &mdash; o porquinho segue-te.</li>
+      <li><strong>Maçã</strong> = 1 ponto. <strong>Trufa dourada</strong> = 5 pontos (desaparece depressa!).</li>
+      <li>A <strong>lama</strong> deixa toda a gente mais lenta &mdash; incluindo o lobo.</li>
+      <li>Tens 3 vidas. A cada 10 pontos sobes de nível e aparecem mais lobos.</li>
+    </ul>
+  </section>
+
+  <footer>Jogo feito em HTML, CSS e JavaScript.</footer>
+
+<script>
+/* =====================================================================
+   O PORQUINHO GULOSO
+   ---------------------------------------------------------------------
+   Ideias principais (boas para explicar na apresentação):
+   1. CICLO DE JOGO: cerca de 60 vezes por segundo o programa
+      (a) lê os comandos, (b) actualiza as posições e (c) desenha tudo.
+   2. COLISÕES: cada objecto é tratado como um círculo. Se a distância
+      entre dois centros for menor que a soma dos raios, tocaram-se.
+   3. ESTADOS: o jogo está sempre num destes estados:
+      "menu", "a jogar", "pausa" ou "fim".
+   ===================================================================== */
+
+// ---------- Preparação do canvas ----------
+const canvas = document.getElementById('jogo');
+const ctx = canvas.getContext('2d');   // "pincel" para desenhar
+const W = canvas.width;                // 800
+const H = canvas.height;               // 500
+const CERCA = 24;                      // espessura da cerca à volta
+
+// ---------- Variáveis do jogo ----------
+let estado = 'menu';
+let pontos = 0;
+let vidas = 3;
+let nivel = 1;
+let recorde = lerRecorde();
+let tempo = 0;            // tempo total em segundos (usado em animações)
+let tempoTrufa = 0;       // contador para fazer aparecer trufas
+let avisoNivel = 0;       // segundos que falta mostrar "Nível X!"
+
+// O porquinho (o jogador)
+const porco = {
+  x: W / 2, y: H / 2,
+  raio: 22,
+  velocidade: 230,        // píxeis por segundo
+  direcao: 1,             // 1 = olha para a direita, -1 = esquerda
+  aMover: false,
+  invencivel: 0           // segundos de protecção depois de ser apanhado
+};
+
+let comidas = [];         // maçãs e trufas
+let lobos = [];
+let lamas = [];
+let textos = [];          // textos que flutuam ("+1", "+5"...)
+
+// Tufos de erva decorativos (gerados uma vez só)
+const tufos = [];
+for (let i = 0; i < 70; i++) {
+  tufos.push({ x: CERCA + Math.random() * (W - 2 * CERCA),
+               y: CERCA + Math.random() * (H - 2 * CERCA) });
+}
+
+/* =====================================================================
+   COMANDOS: teclado, rato e toque
+   ===================================================================== */
+const teclas = {};
+let alvo = null;          // ponto para onde o dedo/rato aponta
+
+document.addEventListener('keydown', (e) => {
+  // Se estiver a escrever o nome do porco, o teclado não controla o jogo
+  if (e.target.tagName === 'INPUT') return;
+  const k = e.key.toLowerCase();
+  // Evita que as setas e o espaço façam scroll à página
+  if (['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+
+  if (k === ' ' || k === 'p') {
+    if (estado === 'menu' || estado === 'fim') iniciarJogo();
+    else alternarPausa();
+    return;
+  }
+  teclas[k] = true;
+});
+document.addEventListener('keyup', (e) => { teclas[e.key.toLowerCase()] = false; });
+
+// Converte a posição do dedo/rato no ecrã para coordenadas do jogo
+function posicaoNoJogo(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * W / r.width,
+           y: (e.clientY - r.top)  * H / r.height };
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (estado === 'menu' || estado === 'fim') { iniciarJogo(); return; }
+  if (estado === 'pausa') { alternarPausa(); return; }
+  canvas.setPointerCapture(e.pointerId);
+  alvo = posicaoNoJogo(e);
+});
+canvas.addEventListener('pointermove', (e) => { if (alvo) alvo = posicaoNoJogo(e); });
+canvas.addEventListener('pointerup', () => { alvo = null; });
+canvas.addEventListener('pointercancel', () => { alvo = null; });
+
+// Botões por baixo do jogo
+document.getElementById('btnJogar').onclick = iniciarJogo;
+document.getElementById('btnPausa').onclick = alternarPausa;
+document.getElementById('btnSom').onclick = function () {
+  somLigado = !somLigado;
+  this.textContent = 'Som: ' + (somLigado ? 'ligado' : 'desligado');
+};
+
+// Se a pessoa mudar de separador, o jogo pausa sozinho
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && estado === 'a jogar') alternarPausa();
+});
+
+/* =====================================================================
+   SONS (gerados pelo próprio navegador, sem ficheiros)
+   ===================================================================== */
+let audio = null;
+let somLigado = true;
+
+function som(freqInicio, freqFim, duracao, tipo = 'square', volume = 0.06) {
+  if (!somLigado) return;
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audio.createOscillator();
+    const ganho = audio.createGain();
+    const agora = audio.currentTime;
+    osc.type = tipo;
+    osc.frequency.setValueAtTime(freqInicio, agora);
+    osc.frequency.linearRampToValueAtTime(freqFim, agora + duracao);
+    ganho.gain.setValueAtTime(volume, agora);
+    ganho.gain.exponentialRampToValueAtTime(0.0001, agora + duracao);
+    osc.connect(ganho).connect(audio.destination);
+    osc.start(agora);
+    osc.stop(agora + duracao);
+  } catch (erro) { /* sem som: não faz mal */ }
+}
+const somComer  = () => som(500, 900, 0.12);
+const somTrufa  = () => { som(600, 1200, 0.15, 'triangle', 0.08); setTimeout(() => som(900, 1600, 0.2, 'triangle', 0.08), 120); };
+const somOinc   = () => som(320, 140, 0.35, 'sawtooth', 0.07);   // "oinc!" quando é apanhado
+const somNivel  = () => [523, 659, 784].forEach((f, i) => setTimeout(() => som(f, f, 0.15, 'triangle', 0.08), i * 120));
+
+/* =====================================================================
+   RECORDE (guardado no próprio navegador)
+   ===================================================================== */
+function lerRecorde() {
+  try { return Number(localStorage.getItem('porquinho-recorde')) || 0; }
+  catch (e) { return 0; }
+}
+function guardarRecorde(valor) {
+  try { localStorage.setItem('porquinho-recorde', String(valor)); } catch (e) {}
+}
+
+/* =====================================================================
+   FUNÇÕES DE APOIO
+   ===================================================================== */
+function distancia(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+function aleatorio(min, max) { return min + Math.random() * (max - min); }
+
+// Procura um sítio livre, longe do porco e dos lobos
+function posicaoLivre(margem = 40, longeDoPorco = 120) {
+  for (let tentativa = 0; tentativa < 40; tentativa++) {
+    const p = { x: aleatorio(CERCA + margem, W - CERCA - margem),
+                y: aleatorio(CERCA + margem, H - CERCA - margem) };
+    const pertoDoPorco = distancia(p, porco) < longeDoPorco;
+    const pertoDeLobo = lobos.some(l => distancia(p, l) < 80);
+    if (!pertoDoPorco && !pertoDeLobo) return p;
+  }
+  return { x: W / 2, y: H / 2 };
+}
+
+// Ponto num canto do campo, o mais longe possível do porco
+function cantoLonge() {
+  const cantos = [
+    { x: CERCA + 30, y: CERCA + 30 }, { x: W - CERCA - 30, y: CERCA + 30 },
+    { x: CERCA + 30, y: H - CERCA - 30 }, { x: W - CERCA - 30, y: H - CERCA - 30 }
+  ];
+  cantos.sort((a, b) => distancia(b, porco) - distancia(a, porco));
+  return { ...cantos[Math.floor(Math.random() * 2)] };   // um dos 2 mais longe
+}
+
+function estaNaLama(obj) {
+  // Fórmula da elipse: (dx/rx)² + (dy/ry)² < 1 significa "está dentro"
+  return lamas.some(l => ((obj.x - l.x) / l.rx) ** 2 + ((obj.y - l.y) / l.ry) ** 2 < 1);
+}
+
+function criarMaca() {
+  const p = posicaoLivre();
+  comidas.push({ x: p.x, y: p.y, tipo: 'maca', raio: 12, vida: Infinity });
+}
+function criarTrufa() {
+  const p = posicaoLivre(40, 180);
+  comidas.push({ x: p.x, y: p.y, tipo: 'trufa', raio: 13, vida: 6 }); // dura 6 segundos
+}
+
+/* =====================================================================
+   PREPARAR UM NÍVEL
+   ===================================================================== */
+function prepararNivel() {
+  // Lama: mais poças em níveis mais altos (máximo 5)
+  lamas = [];
+  const numLamas = Math.min(nivel, 5);
+  for (let i = 0; i < numLamas; i++) {
+    const p = posicaoLivre(70, 110);
+    lamas.push({ x: p.x, y: p.y, rx: aleatorio(45, 75), ry: aleatorio(25, 40) });
+  }
+
+  // Lobos: nenhum no nível 1, depois 1, 2, 3... (máximo 4)
+  const numLobos = Math.min(nivel - 1, 4);
+  while (lobos.length < numLobos) {
+    const c = cantoLonge();
+    lobos.push({ x: c.x, y: c.y, raio: 20, direcao: 1, atordoado: 0 });
+  }
+  // Os lobos ficam mais rápidos a cada nível (mas nunca tanto como o porco)
+  const velocidadeLobo = Math.min(95 + nivel * 15, 200);
+  lobos.forEach(l => l.velocidade = velocidadeLobo);
+}
+
+function iniciarJogo() {
+  pontos = 0; vidas = 3; nivel = 1;
+  porco.x = W / 2; porco.y = H / 2; porco.invencivel = 0;
+  comidas = []; lobos = []; textos = [];
+  tempoTrufa = 0; avisoNivel = 2;
+  prepararNivel();
+  for (let i = 0; i < 3; i++) criarMaca();
+  estado = 'a jogar';
+  somNivel();
+}
+
+function alternarPausa() {
+  if (estado === 'a jogar') estado = 'pausa';
+  else if (estado === 'pausa') estado = 'a jogar';
+}
+
+function terminarJogo() {
+  estado = 'fim';
+  if (pontos > recorde) { recorde = pontos; guardarRecorde(recorde); }
+}
+
+/* =====================================================================
+   ACTUALIZAR (a "física" do jogo) — dt = segundos desde o último frame
+   ===================================================================== */
+function actualizar(dt) {
+  if (avisoNivel > 0) avisoNivel -= dt;
+
+  // ---- 1. Mover o porco ----
+  let dx = 0, dy = 0;
+  if (teclas['arrowleft']  || teclas['a']) dx -= 1;
+  if (teclas['arrowright'] || teclas['d']) dx += 1;
+  if (teclas['arrowup']    || teclas['w']) dy -= 1;
+  if (teclas['arrowdown']  || teclas['s']) dy += 1;
+
+  if (dx === 0 && dy === 0 && alvo) {        // sem teclas: segue o dedo
+    const d = distancia(alvo, porco);
+    if (d > 6) { dx = (alvo.x - porco.x) / d; dy = (alvo.y - porco.y) / d; }
+  }
+
+  const comprimento = Math.hypot(dx, dy);
+  porco.aMover = comprimento > 0;
+  if (porco.aMover) {
+    dx /= comprimento; dy /= comprimento;     // diagonal não pode ser mais rápida
+    const vel = porco.velocidade * (estaNaLama(porco) ? 0.45 : 1);
+    porco.x += dx * vel * dt;
+    porco.y += dy * vel * dt;
+    if (dx !== 0) porco.direcao = dx > 0 ? 1 : -1;
+  }
+  // Não deixar sair da cerca
+  porco.x = Math.max(CERCA + porco.raio, Math.min(W - CERCA - porco.raio, porco.x));
+  porco.y = Math.max(CERCA + porco.raio, Math.min(H - CERCA - porco.raio, porco.y));
+  if (porco.invencivel > 0) porco.invencivel -= dt;
+
+  // ---- 2. Comida ----
+  for (const c of comidas) {
+    c.vida -= dt;
+    if (distancia(c, porco) < c.raio + porco.raio) {
+      const valor = c.tipo === 'trufa' ? 5 : 1;
+      pontos += valor;
+      c.comida = true;
+      textos.push({ x: c.x, y: c.y, texto: '+' + valor, vida: 1 });
+      if (c.tipo === 'trufa') somTrufa(); else somComer();
+    }
+  }
+  const macasComidas = comidas.filter(c => c.comida && c.tipo === 'maca').length;
+  comidas = comidas.filter(c => !c.comida && c.vida > 0);   // remove o que foi comido ou expirou
+  for (let i = 0; i < macasComidas; i++) criarMaca();         // repõe as maçãs
+
+  // Trufa: tenta aparecer a cada 7 segundos (se não houver nenhuma)
+  tempoTrufa += dt;
+  if (tempoTrufa > 7) {
+    tempoTrufa = 0;
+    if (!comidas.some(c => c.tipo === 'trufa') && Math.random() < 0.7) criarTrufa();
+  }
+
+  // ---- 3. Subir de nível? ----
+  const novoNivel = 1 + Math.floor(pontos / 10);
+  if (novoNivel > nivel) {
+    nivel = novoNivel;
+    avisoNivel = 2;
+    prepararNivel();
+    somNivel();
+  }
+
+  // ---- 4. Lobos perseguem o porco ----
+  for (const l of lobos) {
+    if (l.atordoado > 0) { l.atordoado -= dt; continue; }
+    const d = distancia(porco, l) || 1;
+    const vel = l.velocidade * (estaNaLama(l) ? 0.45 : 1);
+    // Um pequeno "zigue-zague" para não serem perfeitos
+    const desvio = Math.sin(tempo * 2 + l.x * 0.01) * 0.35;
+    let vx = (porco.x - l.x) / d, vy = (porco.y - l.y) / d;
+    const rx = vx - vy * desvio, ry = vy + vx * desvio;
+    const n = Math.hypot(rx, ry);
+    l.x += rx / n * vel * dt;
+    l.y += ry / n * vel * dt;
+    l.direcao = rx > 0 ? 1 : -1;
+
+    // Apanhou o porco?
+    if (porco.invencivel <= 0 && d < l.raio + porco.raio - 6) {
+      vidas--;
+      porco.invencivel = 2;           // 2 segundos de protecção
+      somOinc();
+      textos.push({ x: porco.x, y: porco.y - 30, texto: 'Oinc!', vida: 1.2 });
+      const c = cantoLonge();         // o lobo volta para um canto
+      l.x = c.x; l.y = c.y; l.atordoado = 1;
+      if (vidas <= 0) { terminarJogo(); return; }
+    }
+  }
+
+  // ---- 5. Textos flutuantes ----
+  for (const t of textos) { t.y -= 40 * dt; t.vida -= dt; }
+  textos = textos.filter(t => t.vida > 0);
+}
+
+/* =====================================================================
+   DESENHAR
+   ===================================================================== */
+function desenharCampo() {
+  ctx.fillStyle = '#7cc96b';
+  ctx.fillRect(0, 0, W, H);
+
+  // Erva
+  ctx.strokeStyle = '#5fae52';
+  ctx.lineWidth = 2;
+  for (const t of tufos) {
+    ctx.beginPath();
+    ctx.moveTo(t.x - 4, t.y); ctx.lineTo(t.x - 6, t.y - 7);
+    ctx.moveTo(t.x, t.y);     ctx.lineTo(t.x, t.y - 9);
+    ctx.moveTo(t.x + 4, t.y); ctx.lineTo(t.x + 6, t.y - 7);
+    ctx.stroke();
+  }
+
+  // Cerca de madeira
+  ctx.fillStyle = '#a0703c';
+  ctx.fillRect(0, 0, W, CERCA); ctx.fillRect(0, H - CERCA, W, CERCA);
+  ctx.fillRect(0, 0, CERCA, H); ctx.fillRect(W - CERCA, 0, CERCA, H);
+  ctx.fillStyle = '#7a5229';
+  for (let x = 0; x < W; x += 40) { ctx.fillRect(x, 0, 6, CERCA); ctx.fillRect(x, H - CERCA, 6, CERCA); }
+  for (let y = 0; y < H; y += 40) { ctx.fillRect(0, y, CERCA, 6); ctx.fillRect(W - CERCA, y, CERCA, 6); }
+}
+
+function desenharLamas() {
+  for (const l of lamas) {
+    ctx.fillStyle = '#7b5532';
+    ctx.beginPath(); ctx.ellipse(l.x, l.y, l.rx, l.ry, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#916840';
+    ctx.beginPath(); ctx.ellipse(l.x - l.rx * 0.25, l.y - l.ry * 0.25, l.rx * 0.4, l.ry * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function desenharMaca(c) {
+  ctx.fillStyle = '#e53935';
+  ctx.beginPath(); ctx.arc(c.x, c.y, 11, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.45)';
+  ctx.beginPath(); ctx.arc(c.x - 4, c.y - 4, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#5d3a1a'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(c.x, c.y - 10); ctx.lineTo(c.x + 2, c.y - 16); ctx.stroke();
+  ctx.fillStyle = '#3f9b3a';
+  ctx.beginPath(); ctx.ellipse(c.x + 6, c.y - 14, 5, 2.5, -0.5, 0, Math.PI * 2); ctx.fill();
+}
+
+function desenharTrufa(c) {
+  // Nos últimos 2 segundos pisca para avisar que vai desaparecer
+  if (c.vida < 2 && Math.floor(tempo * 8) % 2 === 0) return;
+  const brilho = 6 + Math.sin(tempo * 6) * 3;
+  ctx.fillStyle = 'rgba(255, 215, 0, .35)';
+  ctx.beginPath(); ctx.arc(c.x, c.y, 16 + brilho, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#d4a017';
+  ctx.beginPath();
+  ctx.arc(c.x - 5, c.y + 2, 8, 0, Math.PI * 2);
+  ctx.arc(c.x + 5, c.y + 1, 9, 0, Math.PI * 2);
+  ctx.arc(c.x, c.y - 5, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff6c2';
+  ctx.beginPath(); ctx.arc(c.x - 2, c.y - 6, 2.5, 0, Math.PI * 2); ctx.fill();
+}
+
+/* =====================================================================
+   PERSONALIZAÇÃO — cor, chapéu e nome (guardados no navegador)
+   ===================================================================== */
+const CORES = [
+  { nome: 'Rosa',      cor: '#f7b6c6' },
+  { nome: 'Pêssego',   cor: '#f9c79a' },
+  { nome: 'Castanho',  cor: '#b07a52' },
+  { nome: 'Cinzento',  cor: '#b9b4b6' },
+  { nome: 'Preto',     cor: '#4b4146' },
+  { nome: 'Dourado',   cor: '#f2c94c' },
+  { nome: 'Azul',      cor: '#8ecbf0' },
+  { nome: 'Verde',     cor: '#9be08e' },
+  { nome: 'Roxo',      cor: '#c7a3ec' }
+];
+
+const CHAPEUS = [
+  { id: 'nenhum',   nome: 'Nenhum' },
+  { id: 'coroa',    nome: 'Coroa' },
+  { id: 'cartola',  nome: 'Cartola' },
+  { id: 'bone',     nome: 'Boné' },
+  { id: 'festa',    nome: 'Festa' },
+  { id: 'cowboy',   nome: 'Cowboy' },
+  { id: 'gorro',    nome: 'Gorro' },
+  { id: 'chef',     nome: 'Chef' },
+  { id: 'pirata',   nome: 'Pirata' }
+];
+
+// Valores por omissão, substituídos pelo que estiver guardado
+let aparencia = { cor: '#f7b6c6', chapeu: 'nenhum', nome: '' };
+try {
+  const guardado = JSON.parse(localStorage.getItem('porquinho-aparencia'));
+  if (guardado) aparencia = { ...aparencia, ...guardado };
+} catch (e) {}
+
+function guardarAparencia() {
+  try { localStorage.setItem('porquinho-aparencia', JSON.stringify(aparencia)); } catch (e) {}
+}
+
+// Escurece uma cor (ex.: '#f7b6c6') para as orelhas, patas e focinho
+function escurecer(hex, fator) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.round(((n >> 16) & 255) * fator);
+  const g = Math.round(((n >> 8) & 255) * fator);
+  const b = Math.round((n & 255) * fator);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+// Constrói os botões do painel
+function construirPainel() {
+  const zonaCores = document.getElementById('cores');
+  const zonaChapeus = document.getElementById('chapeus');
+  const campoNome = document.getElementById('nomePorco');
+
+  CORES.forEach(c => {
+    const b = document.createElement('button');
+    b.className = 'cor';
+    b.style.background = c.cor;
+    b.title = c.nome;
+    b.setAttribute('aria-label', 'Cor ' + c.nome);
+    b.onclick = () => { aparencia.cor = c.cor; actualizarPainel(); };
+    b.dataset.cor = c.cor;
+    zonaCores.appendChild(b);
+  });
+
+  // Selector livre: qualquer cor que se queira
+  const livre = document.createElement('input');
+  livre.type = 'color';
+  livre.id = 'corLivre';
+  livre.title = 'Escolher outra cor';
+  livre.setAttribute('aria-label', 'Escolher outra cor');
+  livre.oninput = () => { aparencia.cor = livre.value; actualizarPainel(); };
+  zonaCores.appendChild(livre);
+
+  CHAPEUS.forEach(h => {
+    const b = document.createElement('button');
+    b.className = 'chapeu';
+    b.textContent = h.nome;
+    b.dataset.chapeu = h.id;
+    b.onclick = () => { aparencia.chapeu = h.id; actualizarPainel(); };
+    zonaChapeus.appendChild(b);
+  });
+
+  campoNome.value = aparencia.nome;
+  campoNome.oninput = () => { aparencia.nome = campoNome.value.trim(); guardarAparencia(); };
+
+  actualizarPainel();
+}
+
+// Marca o botão escolhido e guarda a escolha
+function actualizarPainel() {
+  document.querySelectorAll('.cor').forEach(b =>
+    b.classList.toggle('activo', b.dataset.cor === aparencia.cor));
+  document.querySelectorAll('.chapeu').forEach(b =>
+    b.classList.toggle('activo', b.dataset.chapeu === aparencia.chapeu));
+  document.getElementById('corLivre').value = aparencia.cor;
+  guardarAparencia();
+}
+
+/* =====================================================================
+   DESENHO DO PORCO
+   Recebe o "pincel" (c) para poder desenhar no jogo e na pré-visualização
+   ===================================================================== */
+function desenharFiguraPorco(c, x, y, direcao, aMover) {
+  const corpo  = aparencia.cor;
+  const escuro = escurecer(aparencia.cor, 0.85);
+  const narinas = escurecer(aparencia.cor, 0.55);
+  const passo = aMover ? Math.sin(tempo * 16) : 0;
+
+  c.save();
+  c.translate(x, y + passo * 1.5);
+  c.scale(direcao, 1);          // vira o desenho para o lado certo
+
+  // Patas
+  c.fillStyle = escuro;
+  [-14, -5, 6, 14].forEach((px, i) => {
+    const mexe = aMover ? (i % 2 ? passo : -passo) * 3 : 0;
+    c.fillRect(px - 3, 10, 6, 10 + mexe);
+  });
+  // Cauda encaracolada
+  c.strokeStyle = escuro; c.lineWidth = 3;
+  c.beginPath(); c.arc(-26, -2, 5, 0.3, Math.PI * 1.7); c.stroke();
+  // Corpo e cabeça
+  c.fillStyle = corpo;
+  c.beginPath(); c.ellipse(0, 2, 24, 16, 0, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.arc(19, -6, 13, 0, Math.PI * 2); c.fill();
+  // Orelhas
+  c.fillStyle = escuro;
+  c.beginPath(); c.moveTo(10, -14); c.lineTo(12, -25); c.lineTo(18, -17); c.fill();
+  c.beginPath(); c.moveTo(19, -18); c.lineTo(25, -27); c.lineTo(27, -15); c.fill();
+  // Focinho
+  c.beginPath(); c.ellipse(31, -3, 6, 5, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle = narinas;
+  c.beginPath(); c.ellipse(29.5, -3, 1.2, 2, 0, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(32.5, -3, 1.2, 2, 0, 0, Math.PI * 2); c.fill();
+  // Olho (branco à volta se o porco for escuro, para se ver bem)
+  c.fillStyle = '#fff';
+  c.beginPath(); c.arc(22, -10, 3.2, 0, Math.PI * 2); c.fill();
+  c.fillStyle = '#2b1a1f';
+  c.beginPath(); c.arc(22.5, -10, 2, 0, Math.PI * 2); c.fill();
+  // Bochecha
+  c.fillStyle = 'rgba(230, 90, 120, .35)';
+  c.beginPath(); c.arc(18, -1, 3.5, 0, Math.PI * 2); c.fill();
+
+  desenharChapeu(c, aparencia.chapeu);
+  c.restore();
+}
+
+// Cada chapéu é desenhado por cima da cabeça (centro da cabeça: 19, -6)
+function desenharChapeu(c, tipo) {
+  c.save();
+  c.translate(19, -19);          // topo da cabeça
+  switch (tipo) {
+    case 'coroa':
+      c.fillStyle = '#f5c518';
+      c.beginPath();
+      c.moveTo(-11, 2); c.lineTo(-11, -10); c.lineTo(-6, -4); c.lineTo(0, -13);
+      c.lineTo(6, -4); c.lineTo(11, -10); c.lineTo(11, 2); c.closePath(); c.fill();
+      c.fillStyle = '#e53935'; c.beginPath(); c.arc(0, -2, 2.5, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#1e88e5'; c.beginPath(); c.arc(-7, -1, 1.8, 0, Math.PI * 2); c.arc(7, -1, 1.8, 0, Math.PI * 2); c.fill();
+      break;
+    case 'cartola':
+      c.fillStyle = '#222';
+      c.fillRect(-14, 0, 28, 4);           // aba
+      c.fillRect(-9, -20, 18, 21);         // copa
+      c.fillStyle = '#c62828';
+      c.fillRect(-9, -5, 18, 4);           // fita
+      break;
+    case 'bone':
+      c.fillStyle = '#1e66d0';
+      c.beginPath(); c.arc(0, 2, 12, Math.PI, 0); c.fill();
+      c.beginPath(); c.ellipse(13, 2, 10, 3, 0, 0, Math.PI * 2); c.fill();  // pala para a frente
+      c.fillStyle = '#fff'; c.beginPath(); c.arc(0, -10, 2, 0, Math.PI * 2); c.fill();
+      break;
+    case 'festa':
+      c.fillStyle = '#ab47bc';
+      c.beginPath(); c.moveTo(-9, 2); c.lineTo(0, -24); c.lineTo(9, 2); c.closePath(); c.fill();
+      c.strokeStyle = '#ffeb3b'; c.lineWidth = 2.5;
+      c.beginPath(); c.moveTo(-6, -6); c.lineTo(5, -2); c.moveTo(-3, -14); c.lineTo(3, -11); c.stroke();
+      c.fillStyle = '#ff7043'; c.beginPath(); c.arc(0, -25, 4, 0, Math.PI * 2); c.fill();
+      break;
+    case 'cowboy':
+      c.fillStyle = '#8d5a2b';
+      c.beginPath(); c.ellipse(0, 1, 20, 4.5, 0, 0, Math.PI * 2); c.fill();   // aba larga
+      c.beginPath();
+      c.moveTo(-10, 0); c.lineTo(-8, -13); c.quadraticCurveTo(0, -9, 8, -13); c.lineTo(10, 0);
+      c.closePath(); c.fill();
+      c.fillStyle = '#5d3a1a'; c.fillRect(-10, -4, 20, 3);
+      break;
+    case 'gorro':
+      c.fillStyle = '#e53935';
+      c.beginPath(); c.arc(0, 3, 12, Math.PI, 0); c.fill();
+      c.fillStyle = '#fff'; c.fillRect(-13, 0, 26, 5);
+      c.beginPath(); c.arc(0, -10, 4.5, 0, Math.PI * 2); c.fill();          // pompom
+      break;
+    case 'chef':
+      c.fillStyle = '#fff';
+      c.strokeStyle = '#ddd'; c.lineWidth = 1;
+      c.fillRect(-9, -6, 18, 9); c.strokeRect(-9, -6, 18, 9);
+      c.beginPath();
+      c.arc(-6, -10, 6, 0, Math.PI * 2); c.arc(0, -14, 7, 0, Math.PI * 2); c.arc(6, -10, 6, 0, Math.PI * 2);
+      c.fill();
+      break;
+    case 'pirata':
+      c.fillStyle = '#222';
+      c.beginPath();
+      c.moveTo(-16, 2); c.quadraticCurveTo(0, -22, 16, 2); c.quadraticCurveTo(0, -4, -16, 2);
+      c.fill();
+      // Caveira simples
+      c.fillStyle = '#fff';
+      c.beginPath(); c.arc(0, -7, 3, 0, Math.PI * 2); c.fill();
+      c.fillRect(-1.5, -5, 3, 3);
+      break;
+  }
+  c.restore();
+}
+
+function desenharPorco() {
+  // A piscar enquanto está protegido
+  if (porco.invencivel > 0 && Math.floor(tempo * 10) % 2 === 0) return;
+  desenharFiguraPorco(ctx, porco.x, porco.y, porco.direcao, porco.aMover);
+
+  // Nome por cima do porco
+  if (aparencia.nome) textoComContorno(aparencia.nome, porco.x + 8 * porco.direcao, porco.y - 52, 14);
+}
+
+// Pré-visualização no painel (desenhada um pouco maior)
+const canvasPrevisao = document.getElementById('previsao');
+const ctxPrevisao = canvasPrevisao.getContext('2d');
+function desenharPrevisao() {
+  ctxPrevisao.clearRect(0, 0, canvasPrevisao.width, canvasPrevisao.height);
+  ctxPrevisao.save();
+  ctxPrevisao.translate(canvasPrevisao.width / 2 - 8, canvasPrevisao.height / 2 + 14);
+  ctxPrevisao.scale(1.7, 1.7);
+  desenharFiguraPorco(ctxPrevisao, 0, 0, 1, true);
+  ctxPrevisao.restore();
+}
+
+function desenharLobo(l) {
+  const passo = l.atordoado > 0 ? 0 : Math.sin(tempo * 14 + l.x);
+  ctx.save();
+  ctx.translate(l.x, l.y);
+  ctx.scale(l.direcao, 1);
+  if (l.atordoado > 0) ctx.globalAlpha = 0.5;
+
+  ctx.fillStyle = '#5f646b';
+  [-13, -4, 6, 13].forEach((px, i) => ctx.fillRect(px - 3, 9, 6, 11 + (i % 2 ? passo : -passo) * 3));
+  // Cauda
+  ctx.beginPath(); ctx.ellipse(-26, -4, 10, 5, -0.5, 0, Math.PI * 2); ctx.fill();
+  // Corpo
+  ctx.fillStyle = '#7d838b';
+  ctx.beginPath(); ctx.ellipse(0, 1, 22, 14, 0, 0, Math.PI * 2); ctx.fill();
+  // Cabeça e orelhas
+  ctx.beginPath(); ctx.arc(18, -8, 11, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(10, -14); ctx.lineTo(12, -27); ctx.lineTo(18, -17); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(18, -18); ctx.lineTo(24, -29); ctx.lineTo(26, -14); ctx.fill();
+  // Focinho comprido
+  ctx.beginPath(); ctx.moveTo(24, -12); ctx.lineTo(38, -5); ctx.lineTo(24, -2); ctx.fill();
+  ctx.fillStyle = '#222';
+  ctx.beginPath(); ctx.arc(37, -5, 2.2, 0, Math.PI * 2); ctx.fill();
+  // Olho amarelo
+  ctx.fillStyle = '#ffd34d';
+  ctx.beginPath(); ctx.arc(20, -11, 2.6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#222';
+  ctx.beginPath(); ctx.arc(20.6, -11, 1.2, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function desenharCoracao(x, y, cheio) {
+  ctx.fillStyle = cheio ? '#e53950' : 'rgba(0,0,0,.25)';
+  ctx.beginPath();
+  ctx.moveTo(x, y + 4);
+  ctx.bezierCurveTo(x, y, x - 8, y - 2, x - 8, y + 4);
+  ctx.bezierCurveTo(x - 8, y + 9, x, y + 12, x, y + 16);
+  ctx.bezierCurveTo(x, y + 12, x + 8, y + 9, x + 8, y + 4);
+  ctx.bezierCurveTo(x + 8, y - 2, x, y, x, y + 4);
+  ctx.fill();
+}
+
+function textoComContorno(texto, x, y, tamanho, cor = '#fff', alinhar = 'center') {
+  ctx.font = `bold ${tamanho}px "Trebuchet MS", Verdana, sans-serif`;
+  ctx.textAlign = alinhar;
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = Math.max(3, tamanho / 7);
+  ctx.strokeStyle = '#4a2a33';
+  ctx.strokeText(texto, x, y);
+  ctx.fillStyle = cor;
+  ctx.fillText(texto, x, y);
+}
+
+function desenharPainel() {
+  textoComContorno('Pontos: ' + pontos, CERCA + 12, CERCA + 18, 20, '#fff', 'left');
+  textoComContorno('Nível ' + nivel, W / 2, CERCA + 18, 20);
+  textoComContorno('Recorde: ' + recorde, W - CERCA - 12, CERCA + 46, 16, '#fff', 'right');
+  for (let i = 0; i < 3; i++) desenharCoracao(W - CERCA - 22 - i * 24, CERCA + 8, i < vidas);
+}
+
+function desenharEcra(titulo, linhas) {
+  ctx.fillStyle = 'rgba(40, 20, 28, .55)';
+  ctx.fillRect(0, 0, W, H);
+  textoComContorno(titulo, W / 2, H / 2 - 70, 48, '#ffd1dc');
+  linhas.forEach((l, i) => textoComContorno(l, W / 2, H / 2 + i * 34, 20));
+}
+
+function desenhar() {
+  desenharCampo();
+  desenharLamas();
+  for (const c of comidas) c.tipo === 'maca' ? desenharMaca(c) : desenharTrufa(c);
+  for (const l of lobos) desenharLobo(l);
+  desenharPorco();
+  for (const t of textos) {
+    ctx.globalAlpha = Math.min(1, t.vida * 1.5);
+    textoComContorno(t.texto, t.x, t.y, 22, '#fff59d');
+    ctx.globalAlpha = 1;
+  }
+  desenharPainel();
+
+  if (estado === 'a jogar' && avisoNivel > 0) {
+    textoComContorno('Nível ' + nivel + '!', W / 2, H / 2 - 120, 40, '#fff59d');
+  }
+  if (estado === 'menu') {
+    desenharEcra('O Porquinho Guloso', [
+      'Come maçãs e trufas douradas. Foge do lobo!',
+      'Setas / WASD ou arrasta o dedo para mover',
+      'Carrega em Espaço ou toca aqui para começar'
+    ]);
+  } else if (estado === 'pausa') {
+    desenharEcra('Pausa', ['Carrega em Espaço ou toca para continuar']);
+  } else if (estado === 'fim') {
+    desenharEcra('Fim do jogo!', [
+      'Fizeste ' + pontos + ' pontos (nível ' + nivel + ')',
+      pontos >= recorde && pontos > 0 ? 'Novo recorde!' : 'Recorde: ' + recorde,
+      'Carrega em Espaço ou toca para jogar outra vez'
+    ]);
+  }
+}
+
+/* =====================================================================
+   CICLO DE JOGO — corre cerca de 60 vezes por segundo
+   ===================================================================== */
+let ultimoInstante = performance.now();
+
+function ciclo(agora) {
+  // dt limitado para não "saltar" se o computador engasgar
+  const dt = Math.min((agora - ultimoInstante) / 1000, 0.05);
+  ultimoInstante = agora;
+  tempo += dt;
+
+  if (estado === 'a jogar') actualizar(dt);
+  desenhar();
+  desenharPrevisao();
+  requestAnimationFrame(ciclo);
+}
+
+// No menu inicial mostra o porco a passear e algumas maçãs
+construirPainel();
+porco.aMover = true;
+for (let i = 0; i < 3; i++) criarMaca();
+requestAnimationFrame(ciclo);
+</script>
+</body>
+</html>
